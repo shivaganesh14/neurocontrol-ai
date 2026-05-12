@@ -1,0 +1,26 @@
+# ================================================================
+# NeuroControl AI - Backend Dependencies (Python 3.14 Compatible)
+# ================================================================
+
+# Core Flask Framework
+Flask>=3.0.0
+Flask-CORS>=4.0.0
+
+# Database
+psycopg2-binary>=2.9.0
+
+# AI Integration
+google-generativeai>=0.3.0
+
+# HTTP & API
+requests>=2.31.0
+
+# Configuration & Environment
+python-dotenv>=1.0.0
+
+# Production Server
+gunicorn>=21.0.0
+
+# Python 3.14 Compatibility
+setuptools>=69.0.0
+wheel>=0.42.0
