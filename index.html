@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional HMI Dashboard</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            min-height: 100vh;
+        }
+
+        .header {
+            background-color: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header-subtitle {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .clock-section {
+            text-align: right;
+        }
+
+        .clock-label {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .clock-time {
+            font-size: 1.125rem;
+            font-weight: 500;
+        }
+
+        .notification-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .badge-count {
+            background-color: #dc2626;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .user-section {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .main-container {
+            display: flex;
+            height: calc(100vh - 73px);
+        }
+
+        .sidebar {
+            width: 280px;
+            background-color: #ffffff;
+            border-right: 1px solid #e2e8f0;
+            padding: 1.5rem;
+        }
+
+        .section-title {
+            margin: 0 0 1rem 0;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .role-button {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            background-color: #ffffff;
+            color: #1e293b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.875rem;
+            font-weight: 400;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .role-button.active {
+            border-color: #1e40af;
+            background-color: #eff6ff;
+            color: #1e40af;
+            font-weight: 500;
+        }
+
+        .role-button:hover {
+            border-color: #1e40af;
+        }
+
+        .stats-section {
+            margin-bottom: 2rem;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .stat-value {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .stat-value.success {
+            color: #16a34a;
+        }
+
+        .stat-value.danger {
+            color: #dc2626;
+        }
+
+        .stat-value.primary {
+            color: #1e40af;
+        }
+
+        .activity-item {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-bottom: 0.75rem;
+        }
+
+        .activity-title {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .activity-time {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow: auto;
+        }
+
+        .chart-container {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .chart-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .chart-legend {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.75rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .alarms-section h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 0 0 1.5rem 0;
+        }
+
+        .alarms-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-button {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            background-color: #ffffff;
+            color: #1e293b;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+
+        .alarm-card {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            border: 1px solid;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: all 0.2s ease;
+            margin-bottom: 1rem;
+        }
+
+        .alarm-card.critical {
+            border-color: #dc262620;
+        }
+
+        .alarm-card.warning {
+            border-color: #ea580c20;
+        }
+
+        .alarm-card.medium {
+            border-color: #1e40af20;
+        }
+
+        .alarm-header {
+            padding: 1.25rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .alarm-header.critical {
+            background-color: #fef2f2;
+        }
+
+        .alarm-header.warning {
+            background-color: #fff7ed;
+        }
+
+        .alarm-header.medium {
+            background-color: #eff6ff;
+        }
+
+        .alarm-content {
+            flex: 1;
+        }
+
+        .alarm-title-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .alarm-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .acknowledged-badge {
+            background-color: #16a34a;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .alarm-description {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin: 0;
+        }
+
+        .alarm-meta {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .alarm-right {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .severity-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            text-transform: uppercase;
+        }
+
+        .severity-badge.critical {
+            background-color: #dc2626;
+        }
+
+        .severity-badge.warning {
+            background-color: #ea580c;
+        }
+
+        .severity-badge.medium {
+            background-color: #1e40af;
+        }
+
+        .alarm-details {
+            padding: 1.25rem;
+            border-top: 1px solid #e2e8f0;
+            background-color: #f8fafc;
+        }
+
+        .detail-section {
+            margin-bottom: 1rem;
+        }
+
+        .detail-title {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #1e40af;
+        }
+
+        .detail-text {
+            margin: 0;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .detail-text.ai-reasoning {
+            color: #64748b;
+        }
+
+        .acknowledge-button {
+            padding: 0.5rem 1rem;
+            background-color: #1e40af;
+            color: white;
+            border: none;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .acknowledge-button:hover {
+            background-color: #1e3a8a;
+        }
+
+        .icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        .icon-small {
+            width: 16px;
+            height: 16px;
+        }
+
+        .icon-tiny {
+            width: 12px;
+            height: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = Recharts;
+
+        // Icon components (simplified)
+        const Activity = () => <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>;
+        const Users = () => <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>;
+        const Settings = () => <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+        const AlertTriangle = () => <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
+        const ChevronDown = () => <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>;
+        const ChevronUp = () => <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>;
+        const Filter = () => <svg className="icon-small" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>;
+        const Bell = () => <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>;
+        const User = () => <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
+        const Clock = () => <svg className="icon-tiny" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+
+        const HMI_Dashboard = () => {
+            const [selectedRole, setSelectedRole] = useState('operator');
+            const [expandedAlarm, setExpandedAlarm] = useState(null);
+            const [liveData, setLiveData] = useState([]);
+            const [currentTime, setCurrentTime] = useState(new Date());
+
+            const [alarms, setAlarms] = useState([
+                {
+                    id: 1,
+                    title: 'Pump Station A - Pressure Anomaly',
+                    severity: 'critical',
+                    time: '2 min ago',
+                    description: 'Pressure reading 15% above normal threshold',
+                    aiAction: 'Reduce pump speed by 20% and check for blockages',
+                    aiReasoning: 'High pressure indicates potential blockage in discharge line',
+                    sensor: 'PRS-001',
+                    location: 'Building A - Floor 2',
+                    acknowledged: false
+                },
+                {
+                    id: 2,
+                    title: 'Temperature Sensor B - Drift Detected',
+                    severity: 'warning',
+                    time: '5 min ago',
+                    description: 'Temperature variance of 3.2°C from expected range',
+                    aiAction: 'Schedule sensor calibration within 24 hours',
+                    aiReasoning: 'Gradual drift suggests sensor aging, not critical failure',
+                    sensor: 'TMP-002',
+                    location: 'Building B - Floor 1',
+                    acknowledged: true
+                },
+                {
+                    id: 3,
+                    title: 'Conveyor System - Speed Inconsistency',
+                    severity: 'medium',
+                    time: '12 min ago',
+                    description: 'Line speed fluctuating between 85-95% of setpoint',
+                    aiAction: 'Inspect motor controller connections',
+                    aiReasoning: 'Speed variation indicates electrical interference or wear',
+                    sensor: 'SPD-003',
+                    location: 'Production Line 1',
+                    acknowledged: false
+                }
+            ]);
+
+            const roleBasedAlarms = alarms.filter(alarm => {
+                if (selectedRole === 'operator') return alarm.severity === 'critical';
+                if (selectedRole === 'supervisor') return ['critical', 'warning'].includes(alarm.severity);
+                return true;
+            });
+
+            useEffect(() => {
+                const generateDataPoint = () => ({
+                    time: new Date().toLocaleTimeString(),
+                    pressure: 85 + Math.random() * 15,
+                    temperature: 72 + Math.random() * 8,
+                    flow: 90 + Math.random() * 10
+                });
+
+                setLiveData([generateDataPoint(), generateDataPoint(), generateDataPoint()]);
+                
+                const interval = setInterval(() => {
+                    setLiveData(prev => {
+                        const newData = [...prev, generateDataPoint()];
+                        return newData.slice(-10);
+                    });
+                }, 3000);
+
+                return () => clearInterval(interval);
+            }, []);
+
+            useEffect(() => {
+                const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+                return () => clearInterval(timer);
+            }, []);
+
+            const toggleAlarmExpansion = (alarmId) => {
+                setExpandedAlarm(expandedAlarm === alarmId ? null : alarmId);
+            };
+
+            const acknowledgeAlarm = (alarmId) => {
+                setAlarms(prev => prev.map(alarm => 
+                    alarm.id === alarmId ? { ...alarm, acknowledged: true } : alarm
+                ));
+            };
+
+            return (
+                <div>
+                    {/* Header */}
+                    <header className="header">
+                        <div className="header-left">
+                            <Activity />
+                            <div>
+                                <h1>Control Systems Dashboard</h1>
+                                <p className="header-subtitle">Industrial Monitoring & Control Interface</p>
+                            </div>
+                        </div>
+                        
+                        <div className="header-right">
+                            <div className="clock-section">
+                                <div className="clock-label">System Time</div>
+                                <div className="clock-time">
+                                    {currentTime.toLocaleTimeString()}
+                                </div>
+                            </div>
+                            <div className="notification-badge">
+                                <Bell />
+                                <span className="badge-count">
+                                    {alarms.filter(a => !a.acknowledged).length}
+                                </span>
+                            </div>
+                            <div className="user-section">
+                                <User />
+                                <span>John Doe</span>
+                            </div>
+                        </div>
+                    </header>
+
+                    <div className="main-container">
+                        
+                        {/* Sidebar */}
+                        <aside className="sidebar">
+                            
+                            {/* Role Selector */}
+                            <div style={{ marginBottom: '2rem' }}>
+                                <h3 className="section-title">User Role</h3>
+                                <div>
+                                    {[
+                                        { id: 'operator', label: 'Operator', icon: Users },
+                                        { id: 'supervisor', label: 'Supervisor', icon: Settings },
+                                        { id: 'engineer', label: 'Engineer', icon: Activity }
+                                    ].map(role => (
+                                        <button
+                                            key={role.id}
+                                            onClick={() => setSelectedRole(role.id)}
+                                            className={`role-button ${selectedRole === role.id ? 'active' : ''}`}
+                                        >
+                                            <role.icon />
+                                            <span>{role.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Quick Stats */}
+                            <div className="stats-section">
+                                <h3 className="section-title">System Status</h3>
+                                <div>
+                                    <div className="stat-row">
+                                        <span className="stat-label">Active Alarms</span>
+                                        <span className="stat-value danger">
+                                            {alarms.filter(a => !a.acknowledged).length}
+                                        </span>
+                                    </div>
+                                    <div className="stat-row">
+                                        <span className="stat-label">Systems Online</span>
+                                        <span className="stat-value success">
+                                            24/25
+                                        </span>
+                                    </div>
+                                    <div className="stat-row">
+                                        <span className="stat-label">Efficiency</span>
+                                        <span className="stat-value primary">
+                                            94%
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Recent Activity */}
+                            <div>
+                                <h3 className="section-title">Recent Activity</h3>
+                                <div>
+                                    <div className="activity-item">
+                                        <div className="activity-title">Pump maintenance completed</div>
+                                        <div className="activity-time">
+                                            <Clock />
+                                            15 min ago
+                                        </div>
+                                    </div>
+                                    <div className="activity-item">
+                                        <div className="activity-title">System backup successful</div>
+                                        <div className="activity-time">
+                                            <Clock />
+                                            1 hour ago
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </aside>
+
+                        {/* Main Content */}
+                        <main className="main-content">
+                            
+                            {/* Live Data Chart */}
+                            <div className="chart-container">
+                                <div className="chart-header">
+                                    <h2 className="chart-title">Live System Metrics</h2>
+                                    <div className="chart-legend">
+                                        <div className="legend-item">
+                                            <div className="legend-color" style={{ backgroundColor: '#1e40af' }} />
+                                            <span>Pressure</span>
+                                        </div>
+                                        <div className="legend-item">
+                                            <div className="legend-color" style={{ backgroundColor: '#16a34a' }} />
+                                            <span>Temperature</span>
+                                        </div>
+                                        <div className="legend-item">
+                                            <div className="legend-color" style={{ backgroundColor: '#ea580c' }} />
+                                            <span>Flow Rate</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <ResponsiveContainer width="100%" height={200}>
+                                    <LineChart data={liveData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                        <XAxis dataKey="time" stroke="#64748b" fontSize={12} />
+                                        <YAxis stroke="#64748b" fontSize={12} />
+                                        <Tooltip 
+                                            contentStyle={{ 
+                                                backgroundColor: '#ffffff', 
+                                                border: '1px solid #e2e8f0',
+                                                borderRadius: '0.375rem'
+                                            }} 
+                                        />
+                                        <Line type="monotone" dataKey="pressure" stroke="#1e40af" strokeWidth={2} dot={false} />
+                                        <Line type="monotone" dataKey="temperature" stroke="#16a34a" strokeWidth={2} dot={false} />
+                                        <Line type="monotone" dataKey="flow" stroke="#ea580c" strokeWidth={2} dot={false} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            {/* Alarms Section */}
+                            <div className="alarms-section">
+                                <div className="alarms-header">
+                                    <h2>Active Alarms ({roleBasedAlarms.length})</h2>
+                                    <button className="filter-button">
+                                        <Filter />
+                                        Filter
+                                    </button>
+                                </div>
+
+                                {/* Alarm Cards */}
+                                <div>
+                                    {roleBasedAlarms.map(alarm => (
+                                        <div
+                                            key={alarm.id}
+                                            className={`alarm-card ${alarm.severity}`}
+                                        >
+                                            {/* Alarm Header */}
+                                            <div
+                                                onClick={() => toggleAlarmExpansion(alarm.id)}
+                                                className={`alarm-header ${alarm.severity}`}
+                                            >
+                                                <div className="alarm-content">
+                                                    <div className="alarm-title-row">
+                                                        <AlertTriangle />
+                                                        <h3 className="alarm-title">
+                                                            {alarm.title}
+                                                        </h3>
+                                                        {alarm.acknowledged && (
+                                                            <span className="acknowledged-badge">
+                                                                Acknowledged
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="alarm-description">
+                                                        {alarm.description}
+                                                    </p>
+                                                    <div className="alarm-meta">
+                                                        <span>{alarm.sensor}</span>
+                                                        <span>•</span>
+                                                        <span>{alarm.location}</span>
+                                                        <span>•</span>
+                                                        <span>{alarm.time}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="alarm-right">
+                                                    <span className={`severity-badge ${alarm.severity}`}>
+                                                        {alarm.severity}
+                                                    </span>
+                                                    {expandedAlarm === alarm.id ? <ChevronUp /> : <ChevronDown />}
+                                                </div>
+                                            </div>
+
+                                            {/* Expanded Details */}
+                                            {expandedAlarm === alarm.id && (
+                                                <div className="alarm-details">
+                                                    <div className="detail-section">
+                                                        <h4 className="detail-title">
+                                                            Recommended Action
+                                                        </h4>
+                                                        <p className="detail-text">
+                                                            {alarm.aiAction}
+                                                        </p>
+                                                    </div>
+                                                    
+                                                    <div className="detail-section">
+                                                        <h4 className="detail-title">
+                                                            AI Analysis
+                                                        </h4>
+                                                        <p className="detail-text ai-reasoning">
+                                                            {alarm.aiReasoning}
+                                                        </p>
+                                                    </div>
+
+                                                    {!alarm.acknowledged && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                acknowledgeAlarm(alarm.id);
+                                                            }}
+                                                            className="acknowledge-button"
+                                                        >
+                                                            Acknowledge Alarm
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </main>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<HMI_Dashboard />, document.getElementById('root'));
+    </script>
+</body>
+</html>
