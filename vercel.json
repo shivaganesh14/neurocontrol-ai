@@ -12,5 +12,9 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "env": {
+    "REACT_APP_BACKEND_1_URL": "@backend-1-url",
+    "REACT_APP_BACKEND_2_URL": "@backend-2-url"
+  }
 }
