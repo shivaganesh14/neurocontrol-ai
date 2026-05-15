@@ -1,4 +1,11 @@
 backend/
+NeuroControl-AI/
+supabase/
+nodejs-installer.msi
+/index.html
+/smart-hmi.html
+/production-hmi.html
+*.md
 requirements.txt
 app.py
 Procfile
