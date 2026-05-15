@@ -36,6 +36,88 @@ button {
     repeating-linear-gradient(90deg, rgba(23, 33, 27, 0.035) 0, rgba(23, 33, 27, 0.035) 1px, transparent 1px, transparent 44px);
 }
 
+.login-screen {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(300px, 0.9fr) minmax(360px, 1.1fr);
+  gap: 24px;
+  align-items: center;
+  padding: 40px;
+}
+
+.login-hero,
+.login-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow);
+}
+
+.login-hero {
+  min-height: 420px;
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  padding: 36px;
+}
+
+.login-hero h1 {
+  font-size: 3rem;
+}
+
+.login-hero p:last-child {
+  max-width: 520px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.login-panel {
+  padding: 24px;
+}
+
+.login-role-grid {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.login-role {
+  min-height: 92px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 4px 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.login-role svg {
+  grid-row: span 2;
+  color: var(--teal);
+}
+
+.login-role span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.login-role.is-selected {
+  border-color: #bdd4ff;
+  background: #eef5ff;
+}
+
+.login-action {
+  width: 100%;
+  justify-content: center;
+}
+
 .app-header {
   min-height: 76px;
   display: flex;
@@ -546,6 +628,57 @@ dd {
   font-size: 1.2rem;
 }
 
+.database-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.database-status-grid article {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.database-status-grid span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.database-status-grid strong {
+  font-size: 1.2rem;
+}
+
+.database-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.database-columns h3 {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+}
+
+.db-row {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.db-row span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
 .panel-heading {
   display: flex;
   align-items: flex-start;
@@ -566,6 +699,10 @@ dd {
   font-size: 0.75rem;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.panel-tag-button {
+  cursor: pointer;
 }
 
 .process-flow {
@@ -871,9 +1008,26 @@ dd {
   .dashboard-side {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .database-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 860px) {
+  .login-screen {
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
+
+  .login-hero {
+    min-height: auto;
+  }
+
+  .login-hero h1 {
+    font-size: 2.15rem;
+  }
+
   .app-header {
     position: static;
     align-items: flex-start;
@@ -911,6 +1065,10 @@ dd {
   .flow-line {
     display: none;
   }
+
+  .database-columns {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 620px) {
@@ -941,7 +1099,9 @@ dd {
   .process-flow,
   .mode-grid,
   .asset-grid,
-  .asset-metric-row {
+  .asset-metric-row,
+  .database-status-grid,
+  .database-columns {
     grid-template-columns: 1fr;
   }
 

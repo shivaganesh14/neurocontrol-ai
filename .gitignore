@@ -1,5 +1,7 @@
 node_modules/
 build/
+backend/data/
+backend/*.log
 .env
 .env.local
 .env.*.local

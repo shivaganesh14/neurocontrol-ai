@@ -147,11 +147,13 @@ NODE_ENV=production
 NODE_VERSION=24.15.0
 DATABASE_URL=your_postgres_connection_string
 FRONTEND_ORIGIN=https://neurocontrol-ai.vercel.app
-OPENAI_API_KEY=optional_openai_key
-AI_MODEL=gpt-5.4-mini
+GEMINI_API_KEY=optional_google_ai_studio_key
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
-`OPENAI_API_KEY` is optional. Without it, the backend still returns local AI recommendations for the demo. With it, `/api/ai/assistant` calls OpenAI's Responses API.
+`GEMINI_API_KEY` is optional. Without it, the backend still returns local AI recommendations for the demo. With it, `/api/ai/assistant` calls Gemini. Use Google AI Studio to create a key.
+
+If you use Supabase Postgres, paste the pooled connection string into `DATABASE_URL`. If you use Render Postgres, copy the internal database URL into `DATABASE_URL`.
 
 After Render deploys, copy its URL, for example:
 
@@ -181,7 +183,9 @@ After deploying, these backend endpoints should work:
 
 ```text
 GET  /health
+POST /api/auth/login
 GET  /api/dashboard
+GET  /api/database
 GET  /api/stream
 POST /api/ai/assistant
 POST /api/control/mode

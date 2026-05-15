@@ -59,7 +59,16 @@ alarmCount = 4
 
 That confirms the backend is live and reading seeded alarm data from `backend/data/neurocontrol-demo.db`.
 
-## 3. Demo Talk Track
+## 3. Login And Role Personalization
+
+Start on the login screen:
+
+1. Select `Operator` to show a simplified critical-alarm workspace.
+2. Refresh or clear session storage, then select `Engineer` to show full diagnostics and the database page.
+
+For the final pitch, use `Engineer` because it unlocks all demo pages.
+
+## 4. Demo Talk Track
 
 Start with:
 
@@ -75,12 +84,10 @@ The top status shows Backend Connected. That means the dashboard is using the AP
 
 Then show role-based filtering:
 
-1. Click `Operator`.
-2. Explain that operators only see critical alarms.
-3. Click `Supervisor`.
-4. Explain that supervisors see critical and warning alarms.
-5. Click `Engineer`.
-6. Explain that engineers see the full diagnostic queue.
+1. Login as `Operator`.
+2. Explain that operators get a reduced view focused on action.
+3. Login as `Engineer`.
+4. Explain that engineers get full diagnostics, assets, and database proof.
 
 Then show alarm triage:
 
@@ -107,9 +114,15 @@ Then show AI:
 1. Click `AI Copilot`.
 2. Ask: `What should the operator prioritize next?`
 3. Click `Ask AI`.
-4. Explain that the backend uses local AI rules by default and can call OpenAI when `OPENAI_API_KEY` is configured.
+4. Explain that the backend uses local AI rules by default and can call Gemini when `GEMINI_API_KEY` is configured.
 
-## 4. Production Demo With Render And Vercel
+Then show database:
+
+1. Click `Database`.
+2. Show telemetry row count increasing after live stream events.
+3. Show `Recent Actions` after login, control changes, AI questions, or alarm acknowledgement.
+
+## 5. Production Demo With Render And Vercel
 
 Use this after deploying the backend to Render and frontend to Vercel.
 
@@ -132,9 +145,10 @@ In the live demo, show:
 - Role tabs filter alarms.
 - Acknowledge updates the alarm count.
 - `AI Copilot` returns a recommendation.
+- `Database` shows stored live telemetry and operator actions.
 - Refresh does not lose database-backed alarm state.
 
-## 5. Quick Recovery
+## 6. Quick Recovery
 
 If the frontend says `Demo Fallback`, the backend URL is not reachable.
 

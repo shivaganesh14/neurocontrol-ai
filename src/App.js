@@ -5,7 +5,9 @@ import {
   AppHeader,
   AssetPanel,
   ControlPanel,
+  DatabasePanel,
   defaultViews,
+  LoginScreen,
   MetricGrid,
   ProcessOverview,
   Sidebar,
@@ -24,9 +26,11 @@ import {
   acknowledgeAlarm as acknowledgeAlarmRequest,
   askAiAssistant,
   createDashboardStream,
+  fetchDatabaseStatus,
   fetchDashboard,
   fetchHealth,
   getApiBaseUrl,
+  login,
   setControlMode,
 } from './services/api';
 import './App.css';
@@ -44,6 +48,15 @@ function createTelemetryPoint(index = 0) {
 }
 
 function App() {
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return JSON.parse(window.sessionStorage.getItem('neurocontrol-user')) || null;
+    } catch (error) {
+      return null;
+    }
+  });
+  const [loginRole, setLoginRole] = useState('operator');
+  const [loginLoading, setLoginLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState('operator');
   const [activeView, setActiveView] = useState('overview');
   const [expandedAlarm, setExpandedAlarm] = useState(1);
@@ -54,6 +67,7 @@ function App() {
   const [controlState, setControlState] = useState({
     mode: 'Normal operation',
   });
+  const [databaseStatus, setDatabaseStatus] = useState(null);
   const [aiQuestion, setAiQuestion] = useState('What should the operator prioritize next?');
   const [aiAnswer, setAiAnswer] = useState('');
   const [aiProvider, setAiProvider] = useState('');
@@ -74,11 +88,21 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (currentUser?.role) {
+      setSelectedRole(currentUser.role);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function syncBackend() {
       try {
-        const [health, dashboard] = await Promise.all([fetchHealth(), fetchDashboard()]);
+        const [health, dashboard, database] = await Promise.all([
+          fetchHealth(),
+          fetchDashboard(),
+          fetchDatabaseStatus(),
+        ]);
 
         if (cancelled) {
           return;
@@ -94,6 +118,7 @@ function App() {
         setActivityItems(dashboard.activity?.length ? dashboard.activity : activity);
         setAlarms(dashboard.alarms?.length ? dashboard.alarms : initialAlarms);
         setControlState(dashboard.controlState || { mode: 'Normal operation' });
+        setDatabaseStatus(database);
         if (dashboard.telemetry?.length) {
           setTelemetry(dashboard.telemetry);
         }
@@ -178,7 +203,52 @@ function App() {
     return alarms.filter((alarm) => role.allowedSeverities.includes(alarm.severity));
   }, [alarms, selectedRole]);
 
+  const visibleViews = useMemo(() => {
+    const access = currentUser?.access || ['overview', 'alarms', 'ai'];
+    return defaultViews.filter((view) => access.includes(view.id));
+  }, [currentUser]);
+
   const unacknowledgedCount = alarms.filter((alarm) => !alarm.acknowledged).length;
+
+  useEffect(() => {
+    if (!visibleViews.some((view) => view.id === activeView)) {
+      setActiveView('overview');
+    }
+  }, [activeView, visibleViews]);
+
+  const handleLogin = async () => {
+    setLoginLoading(true);
+    try {
+      const result = await login(loginRole);
+      setCurrentUser(result.user);
+      setSelectedRole(result.user.role);
+      window.sessionStorage.setItem('neurocontrol-user', JSON.stringify(result.user));
+    } catch (error) {
+      const fallbackUser = {
+        name: loginRole === 'engineer' ? 'Demo Engineer' : loginRole === 'supervisor' ? 'Demo Supervisor' : 'Demo Operator',
+        role: loginRole,
+        access: loginRole === 'operator' ? ['overview', 'alarms', 'ai'] : ['overview', 'alarms', 'ai', 'assets', 'database'],
+      };
+      setCurrentUser(fallbackUser);
+      setSelectedRole(loginRole);
+      window.sessionStorage.setItem('neurocontrol-user', JSON.stringify(fallbackUser));
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const refreshDatabaseStatus = async () => {
+    try {
+      setDatabaseStatus(await fetchDatabaseStatus());
+    } catch (error) {
+      setDatabaseStatus((current) => current || {
+        driver: apiStatus.database,
+        counts: {},
+        actions: [],
+        conversations: [],
+      });
+    }
+  };
 
   const handleToggleAlarm = (alarmId) => {
     setExpandedAlarm((current) => (current === alarmId ? null : alarmId));
@@ -202,6 +272,7 @@ function App() {
           alarm.id === alarmId ? { ...alarm, ...updatedAlarm } : alarm
         )
       );
+      refreshDatabaseStatus();
     } catch (error) {
       setApiStatus((current) => ({
         ...current,
@@ -221,6 +292,7 @@ function App() {
 
     try {
       await setControlMode(mode);
+      refreshDatabaseStatus();
     } catch (error) {
       setApiStatus((current) => ({
         ...current,
@@ -237,6 +309,7 @@ function App() {
       const result = await askAiAssistant(aiQuestion);
       setAiAnswer(result.answer);
       setAiProvider(result.provider);
+      refreshDatabaseStatus();
     } catch (error) {
       setAiProvider('local-ui');
       setAiAnswer(`Use the active alarm queue first. Critical alarms should be acknowledged only after the recommended action is assigned. API error: ${error.message}.`);
@@ -312,6 +385,16 @@ function App() {
       );
     }
 
+    if (activeView === 'database') {
+      return (
+        <DatabasePanel
+          databaseStatus={databaseStatus}
+          apiStatus={apiStatus}
+          onRefresh={refreshDatabaseStatus}
+        />
+      );
+    }
+
     return (
       <div className="dashboard-grid">
         <div className="dashboard-main">
@@ -362,6 +445,19 @@ function App() {
     );
   };
 
+  if (!currentUser) {
+    return (
+      <div className="app-shell">
+        <LoginScreen
+          selectedRole={loginRole}
+          onSelectRole={setLoginRole}
+          onLogin={handleLogin}
+          isLoading={loginLoading}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <AppHeader
@@ -371,14 +467,14 @@ function App() {
       />
       <div className="workspace">
         <Sidebar
-          roles={roles}
+          roles={roles.filter((role) => role.id === currentUser.role)}
           selectedRole={selectedRole}
           onSelectRole={setSelectedRole}
           activity={activityItems}
         />
 
         <main className="dashboard" aria-label="Industrial control dashboard">
-          <ViewTabs views={defaultViews} activeView={activeView} onChange={setActiveView} />
+          <ViewTabs views={visibleViews} activeView={activeView} onChange={setActiveView} />
           <MetricGrid metrics={metrics} />
           {renderActiveView()}
         </main>

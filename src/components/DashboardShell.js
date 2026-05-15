@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   Bell,
   Bot,
+  Briefcase,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -199,7 +200,73 @@ export const defaultViews = [
   { id: 'alarms', label: 'Alarm Triage', icon: AlertTriangle },
   { id: 'ai', label: 'AI Copilot', icon: Bot },
   { id: 'assets', label: 'Assets', icon: Factory },
+  { id: 'database', label: 'Database', icon: Database },
 ];
+
+export function LoginScreen({ selectedRole, onSelectRole, onLogin, isLoading }) {
+  const loginRoles = [
+    {
+      id: 'operator',
+      title: 'Operator',
+      body: 'Critical alarms, guided actions, fast acknowledgement.',
+      icon: User,
+    },
+    {
+      id: 'supervisor',
+      title: 'Supervisor',
+      body: 'Shift overview, warning visibility, work priorities.',
+      icon: Users,
+    },
+    {
+      id: 'engineer',
+      title: 'Engineer',
+      body: 'Full diagnostics, asset state, database proof.',
+      icon: Briefcase,
+    },
+  ];
+
+  return (
+    <main className="login-screen">
+      <section className="login-hero">
+        <div className="brand-mark" aria-hidden="true">
+          <Activity size={24} />
+        </div>
+        <p className="eyebrow">Next-Gen Control System Interface</p>
+        <h1>NeuroControl AI</h1>
+        <p>
+          Role-personalized HMI with live data, AI alarm triage, and database-backed operator actions.
+        </p>
+      </section>
+
+      <section className="login-panel">
+        <div>
+          <p className="eyebrow">Demo Sign In</p>
+          <h2>Select Role</h2>
+        </div>
+        <div className="login-role-grid">
+          {loginRoles.map((role) => {
+            const Icon = role.icon;
+            return (
+              <button
+                className={`login-role ${selectedRole === role.id ? 'is-selected' : ''}`}
+                key={role.id}
+                onClick={() => onSelectRole(role.id)}
+              >
+                <Icon size={20} />
+                <strong>{role.title}</strong>
+                <span>{role.body}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button className="primary-action login-action" onClick={onLogin} disabled={isLoading}>
+          <ShieldCheck size={16} />
+          {isLoading ? 'Signing in' : 'Enter Control Room'}
+        </button>
+      </section>
+    </main>
+  );
+}
 
 export function ControlPanel({ currentMode, onSetMode, disabled }) {
   const modes = ['Normal operation', 'Critical response', 'Energy save'];
@@ -297,6 +364,64 @@ export function AssetPanel({ stages, metrics }) {
             {metric.label}
           </span>
         ))}
+      </div>
+    </section>
+  );
+}
+
+export function DatabasePanel({ databaseStatus, apiStatus, onRefresh }) {
+  const counts = databaseStatus?.counts || {};
+  const actions = databaseStatus?.actions || [];
+  const conversations = databaseStatus?.conversations || [];
+
+  return (
+    <section className="content-panel database-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Database Proof</p>
+          <h2>Live Persistence</h2>
+        </div>
+        <button className="panel-tag panel-tag-button" onClick={onRefresh}>Refresh</button>
+      </div>
+
+      <div className="database-status-grid">
+        <article>
+          <span>Connection</span>
+          <strong>{apiStatus.connected ? 'Connected' : 'Fallback'}</strong>
+        </article>
+        <article>
+          <span>Driver</span>
+          <strong>{databaseStatus?.driver || apiStatus.database}</strong>
+        </article>
+        <article>
+          <span>Telemetry Rows</span>
+          <strong>{counts.telemetry ?? '-'}</strong>
+        </article>
+        <article>
+          <span>Operator Actions</span>
+          <strong>{counts.operator_actions ?? '-'}</strong>
+        </article>
+      </div>
+
+      <div className="database-columns">
+        <div>
+          <h3>Recent Actions</h3>
+          {actions.length ? actions.map((action, index) => (
+            <article className="db-row" key={`${action.actionType}-${index}`}>
+              <strong>{action.actionType}</strong>
+              <span>{action.createdAt}</span>
+            </article>
+          )) : <p>No actions recorded yet.</p>}
+        </div>
+        <div>
+          <h3>AI Conversations</h3>
+          {conversations.length ? conversations.map((item, index) => (
+            <article className="db-row" key={`${item.provider}-${index}`}>
+              <strong>{item.provider}</strong>
+              <span>{item.question}</span>
+            </article>
+          )) : <p>No AI questions yet.</p>}
+        </div>
       </div>
     </section>
   );

@@ -33,6 +33,17 @@ export function fetchDashboard() {
   return request('/api/dashboard');
 }
 
+export function login(role) {
+  return request('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ role }),
+  });
+}
+
+export function fetchDatabaseStatus() {
+  return request('/api/database');
+}
+
 export function acknowledgeAlarm(alarmId) {
   return request(`/api/alarms/${alarmId}/acknowledge`, {
     method: 'POST',
