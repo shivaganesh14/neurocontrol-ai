@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  AiAssistantPanel,
+  AiCopilotOverlay,
+  AiNotificationPanel,
   AlarmQueue,
   AppHeader,
   AssetPanel,
-  ControlPanel,
   defaultViews,
   LoginScreen,
   MetricGrid,
-  NotificationsPanel,
+  NotificationOverlay,
   ProcessOverview,
+  RoleDashboardIntro,
   Sidebar,
+  ShiftTargetPanel,
   TelemetryChart,
   ViewTabs,
   WorkOrderPanel,
@@ -31,7 +33,6 @@ import {
   getApiBaseUrl,
   login,
   markNotificationRead,
-  setControlMode,
   updateWorkOrderStatus,
 } from './services/api';
 import './App.css';
@@ -67,9 +68,8 @@ function App() {
   const [activityItems, setActivityItems] = useState(activity);
   const [workOrders, setWorkOrders] = useState([]);
   const [notifications, setNotifications] = useState([]);
-  const [controlState, setControlState] = useState({
-    mode: 'Normal operation',
-  });
+  const [aiOpen, setAiOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [aiQuestion, setAiQuestion] = useState('What should the operator prioritize next?');
   const [aiAnswer, setAiAnswer] = useState('');
   const [aiProvider, setAiProvider] = useState('');
@@ -120,7 +120,6 @@ function App() {
         setAlarms(dashboard.alarms?.length ? dashboard.alarms : initialAlarms);
         setWorkOrders(dashboard.workOrders || []);
         setNotifications(dashboard.notifications || []);
-        setControlState(dashboard.controlState || { mode: 'Normal operation' });
         if (dashboard.telemetry?.length) {
           setTelemetry(dashboard.telemetry);
         }
@@ -170,9 +169,6 @@ function App() {
       if (dashboard?.processStages?.length) {
         setStages(dashboard.processStages);
       }
-      if (dashboard?.controlState) {
-        setControlState(dashboard.controlState);
-      }
       if (dashboard?.workOrders) {
         setWorkOrders(dashboard.workOrders);
       }
@@ -212,26 +208,12 @@ function App() {
   }, [alarms, selectedRole]);
 
   const visibleViews = useMemo(() => {
-    const access = currentUser?.access || ['overview', 'alarms', 'ai'];
+    const access = currentUser?.access || ['overview', 'alarms'];
     return defaultViews.filter((view) => access.includes(view.id));
   }, [currentUser]);
 
   const unacknowledgedCount = alarms.filter((alarm) => !alarm.acknowledged).length;
   const unreadNotificationCount = notifications.filter((item) => !item.read).length;
-
-  const applyDashboard = (dashboard) => {
-    if (!dashboard) {
-      return;
-    }
-    if (dashboard.metrics?.length) setMetrics(dashboard.metrics);
-    if (dashboard.processStages?.length) setStages(dashboard.processStages);
-    if (dashboard.activity?.length) setActivityItems(dashboard.activity);
-    if (dashboard.alarms?.length) setAlarms(dashboard.alarms);
-    if (dashboard.workOrders) setWorkOrders(dashboard.workOrders);
-    if (dashboard.notifications) setNotifications(dashboard.notifications);
-    if (dashboard.controlState) setControlState(dashboard.controlState);
-    if (dashboard.telemetry?.length) setTelemetry(dashboard.telemetry);
-  };
 
   useEffect(() => {
     if (!visibleViews.some((view) => view.id === activeView)) {
@@ -250,7 +232,7 @@ function App() {
       const fallbackUser = {
         name: loginRole === 'engineer' ? 'Demo Engineer' : loginRole === 'supervisor' ? 'Demo Supervisor' : 'Demo Operator',
         role: loginRole,
-        access: loginRole === 'operator' ? ['overview', 'alarms', 'ai', 'notifications'] : ['overview', 'alarms', 'ai', 'assets', 'notifications'],
+        access: loginRole === 'operator' ? ['overview', 'alarms'] : ['overview', 'alarms', 'assets'],
       };
       setCurrentUser(fallbackUser);
       setSelectedRole(loginRole);
@@ -258,6 +240,14 @@ function App() {
     } finally {
       setLoginLoading(false);
     }
+  };
+
+  const handleSwitchRole = () => {
+    window.sessionStorage.removeItem('neurocontrol-user');
+    setCurrentUser(null);
+    setActiveView('overview');
+    setAiOpen(false);
+    setNotificationsOpen(false);
   };
 
   const handleToggleAlarm = (alarmId) => {
@@ -282,26 +272,6 @@ function App() {
           alarm.id === alarmId ? { ...alarm, ...updatedAlarm } : alarm
         )
       );
-    } catch (error) {
-      setApiStatus((current) => ({
-        ...current,
-        connected: false,
-        database: 'fallback',
-        error: error.message,
-      }));
-    }
-  };
-
-  const handleModeChange = async (mode) => {
-    setControlState((current) => ({ ...current, mode }));
-
-    if (!apiStatus.connected) {
-      return;
-    }
-
-    try {
-      const result = await setControlMode(mode);
-      applyDashboard(result.dashboard);
     } catch (error) {
       setApiStatus((current) => ({
         ...current,
@@ -343,6 +313,21 @@ function App() {
     }
   };
 
+  const handleOpenRoute = (route) => {
+    if (route === 'ai') {
+      setAiOpen(true);
+      setNotificationsOpen(false);
+      return;
+    }
+
+    if (route && visibleViews.some((view) => view.id === route)) {
+      setActiveView(route);
+    } else {
+      setActiveView('overview');
+    }
+    setNotificationsOpen(false);
+  };
+
   const handleNotificationRead = async (id) => {
     setNotifications((items) =>
       items.map((item) => (item.id === id ? { ...item, read: true } : item))
@@ -373,37 +358,12 @@ function App() {
             />
           </div>
           <div className="dashboard-side">
-            <ControlPanel
-              currentMode={controlState.mode}
-              onSetMode={handleModeChange}
+            <AiNotificationPanel
+              notifications={notifications}
+              onRead={handleNotificationRead}
+              onOpenRoute={handleOpenRoute}
             />
             <WorkOrderPanel workOrders={workOrders} onUpdateStatus={handleWorkOrderStatus} />
-          </div>
-        </div>
-      );
-    }
-
-    if (activeView === 'ai') {
-      return (
-        <div className="dashboard-grid">
-          <div className="dashboard-main">
-            <AiAssistantPanel
-              question={aiQuestion}
-              answer={aiAnswer}
-              provider={aiProvider}
-              isLoading={aiLoading}
-              onQuestionChange={setAiQuestion}
-              onAsk={handleAskAi}
-            />
-            <AlarmQueue
-              alarms={visibleAlarms}
-              expandedAlarm={expandedAlarm}
-              onToggleAlarm={handleToggleAlarm}
-              onAcknowledge={handleAcknowledge}
-            />
-          </div>
-          <div className="dashboard-side">
-            <TelemetryChart data={telemetry} />
           </div>
         </div>
       );
@@ -415,73 +375,95 @@ function App() {
           <div className="dashboard-main">
             <AssetPanel stages={stages} metrics={metrics} />
             <ProcessOverview stages={stages} />
+            <TelemetryChart data={telemetry} />
           </div>
           <div className="dashboard-side">
             <WorkOrderPanel workOrders={workOrders} onUpdateStatus={handleWorkOrderStatus} />
-            <ControlPanel
-              currentMode={controlState.mode}
-              onSetMode={handleModeChange}
+            <AiNotificationPanel
+              notifications={notifications}
+              onRead={handleNotificationRead}
+              onOpenRoute={handleOpenRoute}
             />
           </div>
         </div>
       );
     }
 
-    if (activeView === 'notifications') {
+    if (currentUser?.role === 'supervisor') {
       return (
-        <NotificationsPanel
-          notifications={notifications}
-          onRead={handleNotificationRead}
-          onOpenRoute={setActiveView}
-        />
+        <div className="dashboard-grid">
+          <div className="dashboard-main">
+            <RoleDashboardIntro
+              role={currentUser.role}
+              activeAlarmCount={unacknowledgedCount}
+              unreadNotificationCount={unreadNotificationCount}
+            />
+            <TelemetryChart data={telemetry} />
+            <ProcessOverview stages={stages} />
+            <ShiftTargetPanel />
+          </div>
+          <div className="dashboard-side">
+            <AiNotificationPanel
+              notifications={notifications}
+              onRead={handleNotificationRead}
+              onOpenRoute={handleOpenRoute}
+            />
+            <WorkOrderPanel workOrders={workOrders} onUpdateStatus={handleWorkOrderStatus} />
+          </div>
+        </div>
+      );
+    }
+
+    if (currentUser?.role === 'engineer') {
+      return (
+        <div className="dashboard-grid">
+          <div className="dashboard-main">
+            <RoleDashboardIntro
+              role={currentUser.role}
+              activeAlarmCount={unacknowledgedCount}
+              unreadNotificationCount={unreadNotificationCount}
+            />
+            <AssetPanel stages={stages} metrics={metrics} />
+            <ProcessOverview stages={stages} />
+            <TelemetryChart data={telemetry} />
+          </div>
+          <div className="dashboard-side">
+            <WorkOrderPanel workOrders={workOrders} onUpdateStatus={handleWorkOrderStatus} />
+            <AiNotificationPanel
+              notifications={notifications}
+              onRead={handleNotificationRead}
+              onOpenRoute={handleOpenRoute}
+            />
+          </div>
+        </div>
       );
     }
 
     return (
       <div className="dashboard-grid">
         <div className="dashboard-main">
-          <ProcessOverview stages={stages} />
-          <TelemetryChart data={telemetry} />
+          <RoleDashboardIntro
+            role={currentUser.role}
+            activeAlarmCount={unacknowledgedCount}
+            unreadNotificationCount={unreadNotificationCount}
+          />
           <AlarmQueue
             alarms={visibleAlarms}
             expandedAlarm={expandedAlarm}
             onToggleAlarm={handleToggleAlarm}
             onAcknowledge={handleAcknowledge}
           />
+          <TelemetryChart data={telemetry} />
         </div>
 
         <div className="dashboard-side">
-          <ControlPanel
-            currentMode={controlState.mode}
-            onSetMode={handleModeChange}
+          <AiNotificationPanel
+            notifications={notifications}
+            onRead={handleNotificationRead}
+            onOpenRoute={handleOpenRoute}
           />
           <WorkOrderPanel workOrders={workOrders} onUpdateStatus={handleWorkOrderStatus} />
-          <section className="content-panel shift-panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Shift Target</p>
-                <h2>Output Plan</h2>
-              </div>
-              <span className="panel-tag">On track</span>
-            </div>
-            <div className="target-gauge" aria-label="Shift output at 87 percent">
-              <span>87%</span>
-            </div>
-            <dl className="target-list">
-              <div>
-                <dt>Completed</dt>
-                <dd>13,920 units</dd>
-              </div>
-              <div>
-                <dt>Remaining</dt>
-                <dd>2,080 units</dd>
-              </div>
-              <div>
-                <dt>ETA</dt>
-                <dd>18:35</dd>
-              </div>
-            </dl>
-          </section>
+          <ProcessOverview stages={stages} />
         </div>
       </div>
     );
@@ -507,7 +489,8 @@ function App() {
         activeAlarmCount={unacknowledgedCount}
         unreadNotificationCount={unreadNotificationCount}
         apiStatus={apiStatus}
-        onOpenNotifications={() => setActiveView('notifications')}
+        onOpenNotifications={() => setNotificationsOpen(true)}
+        onSwitchRole={handleSwitchRole}
       />
       <div className="workspace">
         <Sidebar
@@ -523,6 +506,24 @@ function App() {
           {renderActiveView()}
         </main>
       </div>
+      <AiCopilotOverlay
+        isOpen={aiOpen}
+        question={aiQuestion}
+        answer={aiAnswer}
+        provider={aiProvider}
+        isLoading={aiLoading}
+        onOpen={() => setAiOpen(true)}
+        onClose={() => setAiOpen(false)}
+        onQuestionChange={setAiQuestion}
+        onAsk={handleAskAi}
+      />
+      <NotificationOverlay
+        isOpen={notificationsOpen}
+        notifications={notifications}
+        onClose={() => setNotificationsOpen(false)}
+        onRead={handleNotificationRead}
+        onOpenRoute={handleOpenRoute}
+      />
     </div>
   );
 }

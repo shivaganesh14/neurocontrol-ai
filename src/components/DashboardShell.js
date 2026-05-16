@@ -11,18 +11,17 @@ import {
   Cpu,
   Database,
   Factory,
-  Inbox,
   Gauge,
   Map,
   RadioTower,
   Send,
   Settings2,
   ShieldCheck,
-  SlidersHorizontal,
   TrendingUp,
   User,
   Users,
   Wrench,
+  X,
 } from 'lucide-react';
 import {
   Area,
@@ -46,7 +45,7 @@ const severityRank = {
   medium: 2,
 };
 
-export function AppHeader({ currentTime, activeAlarmCount, unreadNotificationCount = 0, apiStatus, onOpenNotifications }) {
+export function AppHeader({ currentTime, activeAlarmCount, unreadNotificationCount = 0, apiStatus, onOpenNotifications, onSwitchRole }) {
   const apiConnected = apiStatus?.connected;
   const databaseLabel = apiStatus?.database || 'fallback';
 
@@ -75,6 +74,10 @@ export function AppHeader({ currentTime, activeAlarmCount, unreadNotificationCou
           <Clock3 size={17} />
           <span>{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
         </div>
+        <button className="header-action" onClick={onSwitchRole}>
+          <User size={16} />
+          <span>Switch Role</span>
+        </button>
         <button
           className="notification-pill"
           aria-label={`${unreadNotificationCount} unread notifications and ${activeAlarmCount} unacknowledged alarms`}
@@ -203,9 +206,7 @@ export function ViewTabs({ views, activeView, onChange }) {
 export const defaultViews = [
   { id: 'overview', label: 'Overview', icon: Map },
   { id: 'alarms', label: 'Alarm Triage', icon: AlertTriangle },
-  { id: 'ai', label: 'AI Copilot', icon: Bot },
   { id: 'assets', label: 'Assets', icon: Factory },
-  { id: 'notifications', label: 'Notifications', icon: Inbox },
 ];
 
 export function LoginScreen({ selectedRole, onSelectRole, onLogin, isLoading }) {
@@ -273,35 +274,6 @@ export function LoginScreen({ selectedRole, onSelectRole, onLogin, isLoading }) 
   );
 }
 
-export function ControlPanel({ currentMode, onSetMode, disabled }) {
-  const modes = ['Normal operation', 'Critical response', 'Energy save'];
-
-  return (
-    <section className="content-panel control-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Active Control</p>
-          <h2>Operating Mode</h2>
-        </div>
-        <SlidersHorizontal size={18} />
-      </div>
-
-      <div className="mode-grid">
-        {modes.map((mode) => (
-          <button
-            className={`mode-button ${currentMode === mode ? 'is-selected' : ''}`}
-            key={mode}
-            onClick={() => onSetMode(mode)}
-            disabled={disabled}
-          >
-            {mode}
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 export function AiAssistantPanel({
   question,
   answer,
@@ -337,6 +309,92 @@ export function AiAssistantPanel({
         <strong>{provider ? `Provider: ${provider}` : 'Ready'}</strong>
         <p>{answer || 'Ask the copilot for the safest next action, root-cause hints, or shift summary.'}</p>
       </article>
+    </section>
+  );
+}
+
+export function AiCopilotOverlay({
+  isOpen,
+  question,
+  answer,
+  provider,
+  isLoading,
+  onOpen,
+  onClose,
+  onQuestionChange,
+  onAsk,
+}) {
+  return (
+    <>
+      <button className="floating-ai-button" onClick={onOpen} aria-label="Open AI copilot">
+        <Bot size={18} />
+        <span>AI Copilot</span>
+      </button>
+
+      {isOpen && (
+        <div className="overlay-backdrop" role="presentation" onMouseDown={onClose}>
+          <section
+            className="copilot-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="AI Copilot"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button className="overlay-close" onClick={onClose} aria-label="Close AI copilot">
+              <X size={18} />
+            </button>
+            <AiAssistantPanel
+              question={question}
+              answer={answer}
+              provider={provider}
+              isLoading={isLoading}
+              onQuestionChange={onQuestionChange}
+              onAsk={onAsk}
+            />
+          </section>
+        </div>
+      )}
+    </>
+  );
+}
+
+export function RoleDashboardIntro({ role, activeAlarmCount, unreadNotificationCount }) {
+  const content = {
+    operator: {
+      label: 'Operator Dashboard',
+      title: 'Immediate Safety And Production Actions',
+      body: 'Critical alarms, live telemetry, and next work are placed first so the operator can act without hunting through menus.',
+    },
+    supervisor: {
+      label: 'Supervisor Dashboard',
+      title: 'Shift Performance And Exceptions',
+      body: 'Production target, AI-filtered notifications, warning visibility, and maintenance progress stay together for shift decisions.',
+    },
+    engineer: {
+      label: 'Engineer Dashboard',
+      title: 'Diagnostics, Assets, And Root Cause',
+      body: 'Asset health, process stages, telemetry, and maintenance state are grouped for investigation and tuning.',
+    },
+  };
+  const current = content[role] || content.operator;
+
+  return (
+    <section className={`role-brief role-brief--${role}`}>
+      <div>
+        <p className="eyebrow">{current.label}</p>
+        <h2>{current.title}</h2>
+        <p>{current.body}</p>
+      </div>
+      <dl>
+        <div>
+          <dt>Open alarms</dt>
+          <dd>{activeAlarmCount}</dd>
+        </div>
+        <div>
+          <dt>AI signals</dt>
+          <dd>{unreadNotificationCount}</dd>
+        </div>
+      </dl>
     </section>
   );
 }
@@ -511,23 +569,68 @@ export function TelemetryChart({ data }) {
 
 export function AlarmQueue({ alarms, expandedAlarm, onToggleAlarm, onAcknowledge }) {
   const sortedAlarms = [...alarms].sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+  const primaryAlarm = sortedAlarms.find((alarm) => !alarm.acknowledged) || sortedAlarms[0];
+  const secondaryAlarms = primaryAlarm ? sortedAlarms.filter((alarm) => alarm.id !== primaryAlarm.id) : sortedAlarms;
+
+  if (!primaryAlarm) {
+    return (
+      <section className="content-panel alarm-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Alarm Triage</p>
+            <h2>No Active Alerts</h2>
+          </div>
+          <CheckCircle2 size={18} />
+        </div>
+        <p className="empty-state">No visible alarms for this role. Continue monitoring live telemetry.</p>
+      </section>
+    );
+  }
 
   return (
     <section className="content-panel alarm-panel">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Alarm Queue</p>
-          <h2>Active Priorities</h2>
+          <p className="eyebrow">AI Alarm Triage</p>
+          <h2>Recognize The Priority First</h2>
         </div>
-        <span className="panel-tag">{alarms.length} visible</span>
+        <span className="panel-tag">{alarms.length} role-filtered</span>
       </div>
 
-      <div className="alarm-list">
-        {sortedAlarms.map((alarm) => {
+      <article className={`alarm-spotlight alarm-spotlight--${primaryAlarm.severity}`}>
+        <div className="spotlight-status">
+          <span className={`severity-badge severity-badge--${primaryAlarm.severity}`}>{primaryAlarm.severity}</span>
+          <span>{primaryAlarm.acknowledged ? 'Acknowledged' : 'Needs action'}</span>
+        </div>
+        <div className="spotlight-main">
+          <div>
+            <h3>{primaryAlarm.title}</h3>
+            <p>{primaryAlarm.description}</p>
+            <small>{primaryAlarm.sensor} / {primaryAlarm.asset} / {primaryAlarm.location} / {primaryAlarm.time}</small>
+          </div>
+          <div className="spotlight-action">
+            <strong>Recommended Action</strong>
+            <p>{primaryAlarm.action}</p>
+          </div>
+        </div>
+        <div className="spotlight-ai">
+          <Bot size={17} />
+          <span>{primaryAlarm.reasoning}</span>
+        </div>
+        {!primaryAlarm.acknowledged && (
+          <button className="primary-action" onClick={() => onAcknowledge(primaryAlarm.id)}>
+            <CheckCircle2 size={16} />
+            Acknowledge Priority Alarm
+          </button>
+        )}
+      </article>
+
+      <div className="alert-tile-grid" aria-label="Other visible alarms">
+        {secondaryAlarms.map((alarm) => {
           const expanded = expandedAlarm === alarm.id;
 
           return (
-            <article className={`alarm-card alarm-card--${alarm.severity}`} key={alarm.id}>
+            <article className={`alert-tile alert-tile--${alarm.severity}`} key={alarm.id}>
               <button className="alarm-summary" onClick={() => onToggleAlarm(alarm.id)} aria-expanded={expanded}>
                 <span className="alarm-icon">
                   {alarm.acknowledged ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
@@ -626,33 +729,125 @@ export function WorkOrderPanel({ workOrders = [], onUpdateStatus }) {
   );
 }
 
-export function NotificationsPanel({ notifications = [], onRead, onOpenRoute }) {
+function rankNotifications(notifications) {
+  const severityWeight = { critical: 0, warning: 1, medium: 2, info: 3 };
+  return [...notifications].sort((a, b) => {
+    if (a.read !== b.read) {
+      return a.read ? 1 : -1;
+    }
+    return (severityWeight[a.severity] ?? 4) - (severityWeight[b.severity] ?? 4);
+  });
+}
+
+export function AiNotificationPanel({ notifications = [], onRead, onOpenRoute }) {
+  const ranked = rankNotifications(notifications).slice(0, 3);
+
   return (
-    <section className="content-panel notifications-panel">
+    <section className="content-panel ai-filter-panel">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Notifications</p>
-          <h2>Action Center</h2>
+          <p className="eyebrow">AI Filtered Notifications</p>
+          <h2>Signals That Need Attention</h2>
         </div>
         <Bell size={18} />
       </div>
 
-      <div className="notification-list">
-        {notifications.length ? notifications.map((item) => (
-          <article className={`notification-card notification-card--${item.severity} ${item.read ? 'is-read' : ''}`} key={item.id}>
+      <div className="signal-stack">
+        {ranked.length ? ranked.map((item) => (
+          <article className={`signal-card signal-card--${item.severity} ${item.read ? 'is-read' : ''}`} key={item.id}>
             <div>
               <strong>{item.title}</strong>
               <span>{item.body}</span>
             </div>
-            <div className="notification-actions">
+            <div className="signal-actions">
               <button className="inline-action" onClick={() => onOpenRoute?.(item.route)}>Open</button>
-              {!item.read && <button className="inline-action" onClick={() => onRead?.(item.id)}>Mark read</button>}
+              {!item.read && <button className="inline-action" onClick={() => onRead?.(item.id)}>Read</button>}
             </div>
           </article>
         )) : (
-          <p>No notifications. The control room is quiet.</p>
+          <p className="empty-state">No AI-filtered notifications right now.</p>
         )}
       </div>
+    </section>
+  );
+}
+
+export function NotificationOverlay({ isOpen, notifications = [], onClose, onRead, onOpenRoute }) {
+  if (!isOpen) {
+    return null;
+  }
+
+  const ranked = rankNotifications(notifications);
+
+  return (
+    <div className="overlay-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="notification-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label="AI filtered notifications"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <button className="overlay-close" onClick={onClose} aria-label="Close notifications">
+          <X size={18} />
+        </button>
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">AI Filtered Notifications</p>
+            <h2>Action Center</h2>
+          </div>
+          <Bell size={18} />
+        </div>
+
+        <div className="notification-popup-list">
+          {ranked.length ? ranked.map((item) => (
+            <article className={`notification-popup notification-popup--${item.severity} ${item.read ? 'is-read' : ''}`} key={item.id}>
+              <span className={`severity-badge severity-badge--${item.severity}`}>{item.severity}</span>
+              <div>
+                <strong>{item.title}</strong>
+                <p>{item.body}</p>
+              </div>
+              <div className="notification-actions">
+                <button className="inline-action" onClick={() => onOpenRoute?.(item.route)}>Open</button>
+                {!item.read && <button className="inline-action" onClick={() => onRead?.(item.id)}>Mark read</button>}
+              </div>
+            </article>
+          )) : (
+            <p className="empty-state">No notifications. The control room is quiet.</p>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export function ShiftTargetPanel() {
+  return (
+    <section className="content-panel shift-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Shift Target</p>
+          <h2>Output Plan</h2>
+        </div>
+        <span className="panel-tag">On track</span>
+      </div>
+      <div className="target-gauge" aria-label="Shift output at 87 percent">
+        <span>87%</span>
+      </div>
+      <dl className="target-list">
+        <div>
+          <dt>Completed</dt>
+          <dd>13,920 units</dd>
+        </div>
+        <div>
+          <dt>Remaining</dt>
+          <dd>2,080 units</dd>
+        </div>
+        <div>
+          <dt>ETA</dt>
+          <dd>18:35</dd>
+        </div>
+      </dl>
     </section>
   );
 }

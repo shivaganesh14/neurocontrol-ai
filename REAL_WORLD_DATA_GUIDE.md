@@ -34,6 +34,27 @@ Invoke-WebRequest `
 
 Then open `https://neurocontrol-ai.vercel.app` and check the overview, alarms, AI copilot, and notifications.
 
+## Manual Value Hike For Demo
+
+Use this endpoint when you want to force a clear high-risk moment:
+
+```text
+POST https://neurocontrol-ai.onrender.com/api/demo/hike
+```
+
+PowerShell:
+
+```powershell
+Invoke-WebRequest `
+  -Uri https://neurocontrol-ai.onrender.com/api/demo/hike `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body '{"pressure":106,"temperature":83,"flow":72,"energyLoad":91,"riskIndex":48}' `
+  -UseBasicParsing
+```
+
+This updates live telemetry, hikes energy load and risk index, reopens the Pump Station A critical alarm, and creates an AI-filtered critical notification.
+
 ## Real Factory Integration
 
 Use any bridge that can read plant data and send HTTP JSON:

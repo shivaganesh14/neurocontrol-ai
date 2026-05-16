@@ -11,12 +11,16 @@ NeuroControl AI is a next-generation industrial control system interface for the
 ## What Works
 
 - Role login for operator, supervisor, and engineer views.
-- Active dashboard pages: overview, alarm triage, AI copilot, assets, and notifications.
+- Separate role dashboards for operator, supervisor, and engineer workflows.
+- Active dashboard pages: overview, alarm triage, and assets.
+- Floating AI copilot overlay instead of a separate AI page.
+- AI-filtered notification pop-up/action center instead of a raw notification list.
 - Live backend API with Server-Sent Events for real-time updates.
 - Database-backed state using Supabase Postgres in production or SQLite locally.
-- Active controls for alarm acknowledgement, work order status, notification read state, and control mode changes.
+- Active controls for alarm acknowledgement, work order status, and notification read state.
 - AI answers through local safety logic by default, with optional Gemini/OpenAI API integration.
 - Real sensor/demo ingestion through `POST /api/ingest/telemetry`.
+- Manual demo spike through `POST /api/demo/hike`.
 
 ## Clean Project Structure
 

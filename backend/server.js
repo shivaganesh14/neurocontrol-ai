@@ -104,17 +104,17 @@ const demoUsers = {
   operator: {
     name: 'Asha Rao',
     role: 'operator',
-    access: ['overview', 'alarms', 'ai', 'notifications'],
+    access: ['overview', 'alarms'],
   },
   supervisor: {
     name: 'Marcus Lee',
     role: 'supervisor',
-    access: ['overview', 'alarms', 'ai', 'assets', 'notifications'],
+    access: ['overview', 'alarms', 'assets'],
   },
   engineer: {
     name: 'Priya Nair',
     role: 'engineer',
-    access: ['overview', 'alarms', 'ai', 'assets', 'notifications'],
+    access: ['overview', 'alarms', 'assets'],
   },
 };
 
@@ -401,8 +401,20 @@ async function insertTelemetryRecord(db, input = {}) {
 
   if (pressure > 98) {
     await db.run(
+      `UPDATE alarms
+       SET acknowledged = ?, severity = ?, time_label = ?, description = ?
+       WHERE title = ?`,
+      [
+        false,
+        'critical',
+        'now',
+        `Live pressure reached ${pressure}, which is above the safe demo threshold.`,
+        'Pump Station A pressure anomaly',
+      ]
+    );
+    await db.run(
       'INSERT INTO notifications (title, body, severity, read, route) VALUES (?, ?, ?, ?, ?)',
-      ['Pressure threshold crossed', `Live pressure reached ${pressure}.`, 'critical', false, 'alarms']
+      ['AI filtered critical signal', `Pressure reached ${pressure}; Pump Station A moved to top priority.`, 'critical', false, 'alarms']
     );
   }
 
@@ -768,6 +780,7 @@ async function main() {
         '/api/database',
         '/api/stream',
         '/api/ingest/telemetry',
+        '/api/demo/hike',
         '/api/notifications/:id/read',
         '/api/work-orders/:id/status',
         '/api/ai/assistant',
@@ -937,6 +950,33 @@ async function main() {
       await recordAction(db, 'ingest_telemetry', req.body);
       res.json({
         status: 'stored',
+        telemetry,
+        dashboard: await getDashboard(db),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/demo/hike', async (req, res, next) => {
+    try {
+      const payload = {
+        pressure: Number(req.body.pressure ?? 104),
+        temperature: Number(req.body.temperature ?? 82),
+        flow: Number(req.body.flow ?? 76),
+        energyLoad: Number(req.body.energyLoad ?? 88),
+      };
+      const riskIndex = Number(req.body.riskIndex ?? 42);
+      const telemetry = await insertTelemetryRecord(db, payload);
+
+      await db.run('UPDATE metrics SET value = ?, delta = ?, tone = ? WHERE id = ?', [`${payload.energyLoad}%`, '+17.0%', 'warn', 'energy']);
+      await db.run('UPDATE metrics SET value = ?, delta = ?, tone = ? WHERE id = ?', [String(riskIndex), 'Critical', 'warn', 'risk']);
+      await db.run('UPDATE metrics SET value = ?, delta = ?, tone = ? WHERE id = ?', ['88.4%', '-5.8%', 'warn', 'throughput']);
+      await db.run('UPDATE process_stages SET status = ?, value = ? WHERE id = ?', ['watch', '68%', 'thermal']);
+      await recordAction(db, 'manual_demo_hike', { ...payload, riskIndex });
+
+      res.json({
+        status: 'hiked',
         telemetry,
         dashboard: await getDashboard(db),
       });

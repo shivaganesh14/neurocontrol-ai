@@ -1,6 +1,6 @@
 # NeuroControl AI Demo Guide
 
-Use this flow to show that the project is not a static template. It has a live frontend, backend API, database, real-time updates, role-based UI, active controls, and AI assistance.
+Use this flow to show that the project is not a static template. It has a live frontend, backend API, database, real-time updates, separate role dashboards, AI-filtered notifications, active alarm/work-order actions, and a floating AI copilot.
 
 ## 1. Pre-Demo Reset
 
@@ -40,14 +40,14 @@ NeuroControl AI is a modern industrial control-room interface. Instead of showin
 ## 3. Role-Based Dashboard
 
 1. Login as `Operator`.
-2. Show that the operator view focuses on overview, alarms, AI, and notifications.
+2. Show that the operator view focuses on immediate overview and alarm triage.
 3. Logout or refresh, then login as `Engineer`.
-4. Show that engineer access includes assets and maintenance work orders.
+4. Show that engineer access includes assets, process diagnostics, and maintenance work orders.
 
 Say this:
 
 ```text
-Each role gets the pages they need. Operators get fast action; engineers get deeper diagnostics and maintenance context.
+Each role gets a different dashboard. Operators get fast action; supervisors get shift exceptions and output progress; engineers get diagnostics, assets, and maintenance context.
 ```
 
 ## 4. Real-Time Overview
@@ -60,13 +60,7 @@ On `Overview`, point out:
 - Critical alarm summary.
 - Active maintenance work.
 
-Click a control mode such as `Energy Save` or another available control action.
-
-Say this:
-
-```text
-This button calls the backend, updates control state, stores the operator action, and refreshes the dashboard values.
-```
+Point out that there is no raw database page and no unsafe browser-side plant-control panel. Operators only see actions that make sense for the demo: acknowledge alarms, open AI-filtered signals, and update work orders.
 
 ## 5. Alarm Triage
 
@@ -85,7 +79,7 @@ Traditional HMIs show alarms as a long noisy list. This view ranks alarms by ris
 
 ## 6. AI Copilot
 
-Open `AI Copilot`.
+Click the floating `AI Copilot` button.
 
 Ask:
 
@@ -114,12 +108,12 @@ The AI should prioritize the critical pump pressure alarm and suggest a practica
 Say this:
 
 ```text
-For direct metric questions, the AI answers the exact metric first. For priority questions, it switches to safety triage.
+The AI is an overlay, not a separate page. For direct metric questions, it answers the exact metric first. For priority questions, it switches to safety triage.
 ```
 
-## 7. Notifications
+## 7. AI-Filtered Notifications
 
-Open `Notifications`.
+Click the bell in the header.
 
 1. Click a notification that links to alarms, AI, or assets.
 2. Mark a notification as read.
@@ -128,7 +122,7 @@ Open `Notifications`.
 Say this:
 
 ```text
-Notifications are not dummy buttons. They are stored by the backend and used to guide the operator to the right page.
+Notifications are AI-filtered into a pop-up action center. Critical and unread signals float to the top instead of appearing as a confusing raw list.
 ```
 
 ## 8. Assets And Maintenance
@@ -166,7 +160,32 @@ Say this:
 This same endpoint can receive values from Raspberry Pi, Arduino, Node-RED, MQTT gateways, OPC UA bridges, or PLC integration scripts.
 ```
 
-## 10. Closing Line
+## 10. Manually Hike Backend Values
+
+Use this when you need the demo to become obviously critical:
+
+```powershell
+Invoke-WebRequest `
+  -Uri https://neurocontrol-ai.onrender.com/api/demo/hike `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body '{"pressure":106,"temperature":83,"flow":72,"energyLoad":91,"riskIndex":48}' `
+  -UseBasicParsing
+```
+
+Then refresh the dashboard or wait for the live stream.
+
+Expected result:
+
+```text
+Pressure becomes high.
+Energy Load becomes 91%.
+Risk Index becomes critical.
+Pump Station A becomes the top priority alarm.
+An AI-filtered critical notification appears.
+```
+
+## 11. Closing Line
 
 Say this:
 

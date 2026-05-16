@@ -151,8 +151,8 @@ Then test these UI actions:
 - Login as `Engineer`.
 - Open `Alarm Triage`.
 - Acknowledge one alarm.
-- Open `AI Copilot` and ask `what is the energy load`.
-- Open `Notifications` and mark one notification as read.
+- Click the floating `AI Copilot` button and ask `what is the energy load`.
+- Click the header bell and mark one AI-filtered notification as read.
 - Open `Assets` and move a work order to `In progress` or `Complete`.
 - Refresh the page and confirm the changes are still there.
 
@@ -164,7 +164,29 @@ Use this before a presentation if you want the seeded demo state back:
 Invoke-WebRequest -Uri https://neurocontrol-ai.onrender.com/api/demo/reset -Method POST -UseBasicParsing
 ```
 
-## 7. Common Fixes
+## 7. Hike Values For A Critical Demo Moment
+
+Use this to manually raise pressure, energy load, and risk:
+
+```powershell
+Invoke-WebRequest `
+  -Uri https://neurocontrol-ai.onrender.com/api/demo/hike `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body '{"pressure":106,"temperature":83,"flow":72,"energyLoad":91,"riskIndex":48}' `
+  -UseBasicParsing
+```
+
+Expected result:
+
+```text
+Energy Load = 91%
+Risk Index = 48
+Pump Station A = critical top alarm
+AI-filtered critical notification appears
+```
+
+## 8. Common Fixes
 
 Frontend says `Demo Fallback`:
 
