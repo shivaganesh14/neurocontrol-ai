@@ -5,10 +5,10 @@ import {
   AppHeader,
   AssetPanel,
   ControlPanel,
-  DatabasePanel,
   defaultViews,
   LoginScreen,
   MetricGrid,
+  NotificationsPanel,
   ProcessOverview,
   Sidebar,
   TelemetryChart,
@@ -26,12 +26,13 @@ import {
   acknowledgeAlarm as acknowledgeAlarmRequest,
   askAiAssistant,
   createDashboardStream,
-  fetchDatabaseStatus,
   fetchDashboard,
   fetchHealth,
   getApiBaseUrl,
   login,
+  markNotificationRead,
   setControlMode,
+  updateWorkOrderStatus,
 } from './services/api';
 import './App.css';
 
@@ -64,10 +65,11 @@ function App() {
   const [metrics, setMetrics] = useState(metricCards);
   const [stages, setStages] = useState(processStages);
   const [activityItems, setActivityItems] = useState(activity);
+  const [workOrders, setWorkOrders] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [controlState, setControlState] = useState({
     mode: 'Normal operation',
   });
-  const [databaseStatus, setDatabaseStatus] = useState(null);
   const [aiQuestion, setAiQuestion] = useState('What should the operator prioritize next?');
   const [aiAnswer, setAiAnswer] = useState('');
   const [aiProvider, setAiProvider] = useState('');
@@ -98,10 +100,9 @@ function App() {
 
     async function syncBackend() {
       try {
-        const [health, dashboard, database] = await Promise.all([
+        const [health, dashboard] = await Promise.all([
           fetchHealth(),
           fetchDashboard(),
-          fetchDatabaseStatus(),
         ]);
 
         if (cancelled) {
@@ -117,8 +118,9 @@ function App() {
         setStages(dashboard.processStages?.length ? dashboard.processStages : processStages);
         setActivityItems(dashboard.activity?.length ? dashboard.activity : activity);
         setAlarms(dashboard.alarms?.length ? dashboard.alarms : initialAlarms);
+        setWorkOrders(dashboard.workOrders || []);
+        setNotifications(dashboard.notifications || []);
         setControlState(dashboard.controlState || { mode: 'Normal operation' });
-        setDatabaseStatus(database);
         if (dashboard.telemetry?.length) {
           setTelemetry(dashboard.telemetry);
         }
@@ -171,6 +173,12 @@ function App() {
       if (dashboard?.controlState) {
         setControlState(dashboard.controlState);
       }
+      if (dashboard?.workOrders) {
+        setWorkOrders(dashboard.workOrders);
+      }
+      if (dashboard?.notifications) {
+        setNotifications(dashboard.notifications);
+      }
     };
 
     stream.addEventListener('telemetry', handleTelemetry);
@@ -209,6 +217,21 @@ function App() {
   }, [currentUser]);
 
   const unacknowledgedCount = alarms.filter((alarm) => !alarm.acknowledged).length;
+  const unreadNotificationCount = notifications.filter((item) => !item.read).length;
+
+  const applyDashboard = (dashboard) => {
+    if (!dashboard) {
+      return;
+    }
+    if (dashboard.metrics?.length) setMetrics(dashboard.metrics);
+    if (dashboard.processStages?.length) setStages(dashboard.processStages);
+    if (dashboard.activity?.length) setActivityItems(dashboard.activity);
+    if (dashboard.alarms?.length) setAlarms(dashboard.alarms);
+    if (dashboard.workOrders) setWorkOrders(dashboard.workOrders);
+    if (dashboard.notifications) setNotifications(dashboard.notifications);
+    if (dashboard.controlState) setControlState(dashboard.controlState);
+    if (dashboard.telemetry?.length) setTelemetry(dashboard.telemetry);
+  };
 
   useEffect(() => {
     if (!visibleViews.some((view) => view.id === activeView)) {
@@ -227,26 +250,13 @@ function App() {
       const fallbackUser = {
         name: loginRole === 'engineer' ? 'Demo Engineer' : loginRole === 'supervisor' ? 'Demo Supervisor' : 'Demo Operator',
         role: loginRole,
-        access: loginRole === 'operator' ? ['overview', 'alarms', 'ai'] : ['overview', 'alarms', 'ai', 'assets', 'database'],
+        access: loginRole === 'operator' ? ['overview', 'alarms', 'ai', 'notifications'] : ['overview', 'alarms', 'ai', 'assets', 'notifications'],
       };
       setCurrentUser(fallbackUser);
       setSelectedRole(loginRole);
       window.sessionStorage.setItem('neurocontrol-user', JSON.stringify(fallbackUser));
     } finally {
       setLoginLoading(false);
-    }
-  };
-
-  const refreshDatabaseStatus = async () => {
-    try {
-      setDatabaseStatus(await fetchDatabaseStatus());
-    } catch (error) {
-      setDatabaseStatus((current) => current || {
-        driver: apiStatus.database,
-        counts: {},
-        actions: [],
-        conversations: [],
-      });
     }
   };
 
@@ -272,7 +282,6 @@ function App() {
           alarm.id === alarmId ? { ...alarm, ...updatedAlarm } : alarm
         )
       );
-      refreshDatabaseStatus();
     } catch (error) {
       setApiStatus((current) => ({
         ...current,
@@ -291,8 +300,8 @@ function App() {
     }
 
     try {
-      await setControlMode(mode);
-      refreshDatabaseStatus();
+      const result = await setControlMode(mode);
+      applyDashboard(result.dashboard);
     } catch (error) {
       setApiStatus((current) => ({
         ...current,
@@ -309,12 +318,45 @@ function App() {
       const result = await askAiAssistant(aiQuestion);
       setAiAnswer(result.answer);
       setAiProvider(result.provider);
-      refreshDatabaseStatus();
     } catch (error) {
       setAiProvider('local-ui');
       setAiAnswer(`Use the active alarm queue first. Critical alarms should be acknowledged only after the recommended action is assigned. API error: ${error.message}.`);
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const handleWorkOrderStatus = async (id, status) => {
+    setWorkOrders((items) =>
+      items.map((item) => (item.id === id ? { ...item, status } : item))
+    );
+
+    if (!apiStatus.connected) return;
+
+    try {
+      const updated = await updateWorkOrderStatus(id, status);
+      setWorkOrders((items) =>
+        items.map((item) => (item.id === id ? updated : item))
+      );
+    } catch (error) {
+      setApiStatus((current) => ({ ...current, connected: false, error: error.message }));
+    }
+  };
+
+  const handleNotificationRead = async (id) => {
+    setNotifications((items) =>
+      items.map((item) => (item.id === id ? { ...item, read: true } : item))
+    );
+
+    if (!apiStatus.connected) return;
+
+    try {
+      const updated = await markNotificationRead(id);
+      setNotifications((items) =>
+        items.map((item) => (item.id === id ? updated : item))
+      );
+    } catch (error) {
+      setApiStatus((current) => ({ ...current, connected: false, error: error.message }));
     }
   };
 
@@ -335,7 +377,7 @@ function App() {
               currentMode={controlState.mode}
               onSetMode={handleModeChange}
             />
-            <WorkOrderPanel />
+            <WorkOrderPanel workOrders={workOrders} onUpdateStatus={handleWorkOrderStatus} />
           </div>
         </div>
       );
@@ -375,7 +417,7 @@ function App() {
             <ProcessOverview stages={stages} />
           </div>
           <div className="dashboard-side">
-            <WorkOrderPanel />
+            <WorkOrderPanel workOrders={workOrders} onUpdateStatus={handleWorkOrderStatus} />
             <ControlPanel
               currentMode={controlState.mode}
               onSetMode={handleModeChange}
@@ -385,12 +427,12 @@ function App() {
       );
     }
 
-    if (activeView === 'database') {
+    if (activeView === 'notifications') {
       return (
-        <DatabasePanel
-          databaseStatus={databaseStatus}
-          apiStatus={apiStatus}
-          onRefresh={refreshDatabaseStatus}
+        <NotificationsPanel
+          notifications={notifications}
+          onRead={handleNotificationRead}
+          onOpenRoute={setActiveView}
         />
       );
     }
@@ -413,7 +455,7 @@ function App() {
             currentMode={controlState.mode}
             onSetMode={handleModeChange}
           />
-          <WorkOrderPanel />
+          <WorkOrderPanel workOrders={workOrders} onUpdateStatus={handleWorkOrderStatus} />
           <section className="content-panel shift-panel">
             <div className="panel-heading">
               <div>
@@ -463,7 +505,9 @@ function App() {
       <AppHeader
         currentTime={currentTime}
         activeAlarmCount={unacknowledgedCount}
+        unreadNotificationCount={unreadNotificationCount}
         apiStatus={apiStatus}
+        onOpenNotifications={() => setActiveView('notifications')}
       />
       <div className="workspace">
         <Sidebar

@@ -31,6 +31,18 @@ const demoActivity = [
   ['Backup validation passed', 'Historian sync', '1 hr ago', 3],
 ];
 
+const demoWorkOrders = [
+  ['Controller audit', 'PLC-7', 'high', 'open', 'Today', 'Check firmware drift and validate I/O scan cycle.', 1],
+  ['Thermal cell review', 'HX-04', 'medium', 'open', 'Fri', 'Inspect coolant flow and compare outlet temperature baseline.', 2],
+  ['Air header leak check', 'Air Header C', 'medium', 'queued', 'Next shift', 'Run ultrasonic leak scan after Line 2 pause.', 3],
+];
+
+const demoNotifications = [
+  ['Critical alarm active', 'Pump Station A needs operator attention.', 'critical', false, 'alarms'],
+  ['AI copilot ready', 'Ask for next action, metric status, or root-cause guidance.', 'info', false, 'ai'],
+  ['Maintenance queue updated', 'Three work items are available for the current shift.', 'warning', false, 'assets'],
+];
+
 const demoAlarms = [
   [
     'Pump Station A pressure anomaly',
@@ -92,17 +104,17 @@ const demoUsers = {
   operator: {
     name: 'Asha Rao',
     role: 'operator',
-    access: ['overview', 'alarms', 'ai'],
+    access: ['overview', 'alarms', 'ai', 'notifications'],
   },
   supervisor: {
     name: 'Marcus Lee',
     role: 'supervisor',
-    access: ['overview', 'alarms', 'ai', 'assets', 'database'],
+    access: ['overview', 'alarms', 'ai', 'assets', 'notifications'],
   },
   engineer: {
     name: 'Priya Nair',
     role: 'engineer',
-    access: ['overview', 'alarms', 'ai', 'assets', 'database'],
+    access: ['overview', 'alarms', 'ai', 'assets', 'notifications'],
   },
 };
 
@@ -243,6 +255,28 @@ async function createSchema(db) {
       provider TEXT NOT NULL,
       created_at ${timestampDefault}
     );
+
+    CREATE TABLE IF NOT EXISTS work_orders (
+      id ${idColumn},
+      title TEXT NOT NULL,
+      asset TEXT NOT NULL,
+      priority TEXT NOT NULL,
+      status TEXT NOT NULL,
+      due_label TEXT NOT NULL,
+      recommendation TEXT NOT NULL,
+      sort_order INTEGER NOT NULL,
+      updated_at ${timestampDefault}
+    );
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id ${idColumn},
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      severity TEXT NOT NULL,
+      read ${boolColumn},
+      route TEXT NOT NULL,
+      created_at ${timestampDefault}
+    );
   `);
 }
 
@@ -292,11 +326,31 @@ async function seedIfNeeded(db) {
       await db.run('INSERT INTO control_state (key, value) VALUES (?, ?)', item);
     }
   }
+
+  if ((await tableCount('work_orders')) === 0) {
+    for (const item of demoWorkOrders) {
+      await db.run(
+        'INSERT INTO work_orders (title, asset, priority, status, due_label, recommendation, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        item
+      );
+    }
+  }
+
+  if ((await tableCount('notifications')) === 0) {
+    for (const item of demoNotifications) {
+      await db.run(
+        'INSERT INTO notifications (title, body, severity, read, route) VALUES (?, ?, ?, ?, ?)',
+        item
+      );
+    }
+  }
 }
 
 async function resetDemoData(db) {
   await db.run('DELETE FROM ai_conversations');
   await db.run('DELETE FROM operator_actions');
+  await db.run('DELETE FROM notifications');
+  await db.run('DELETE FROM work_orders');
   await db.run('DELETE FROM control_state');
   await db.run('DELETE FROM telemetry');
   await db.run('DELETE FROM alarms');
@@ -326,6 +380,40 @@ async function insertTelemetryPoint(db, index = Date.now()) {
   };
 }
 
+async function insertTelemetryRecord(db, input = {}) {
+  const now = new Date();
+  const label = now.toLocaleTimeString('en-US', { minute: '2-digit', second: '2-digit' });
+  const pressure = Number(input.pressure ?? 83);
+  const temperature = Number(input.temperature ?? 74);
+  const flow = Number(input.flow ?? 91);
+
+  await db.run(
+    'INSERT INTO telemetry (time_label, pressure, temperature, flow) VALUES (?, ?, ?, ?)',
+    [label, pressure, temperature, flow]
+  );
+
+  if (input.energyLoad !== undefined) {
+    await db.run(
+      'UPDATE metrics SET value = ?, delta = ? WHERE id = ?',
+      [`${Number(input.energyLoad)}%`, 'live', 'energy']
+    );
+  }
+
+  if (pressure > 98) {
+    await db.run(
+      'INSERT INTO notifications (title, body, severity, read, route) VALUES (?, ?, ?, ?, ?)',
+      ['Pressure threshold crossed', `Live pressure reached ${pressure}.`, 'critical', false, 'alarms']
+    );
+  }
+
+  return {
+    time: label,
+    pressure,
+    temperature,
+    flow,
+  };
+}
+
 function mapAlarm(row) {
   return {
     id: row.id,
@@ -342,6 +430,30 @@ function mapAlarm(row) {
   };
 }
 
+function mapWorkOrder(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    asset: row.asset,
+    priority: row.priority,
+    status: row.status,
+    due: row.due_label,
+    recommendation: row.recommendation,
+  };
+}
+
+function mapNotification(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    body: row.body,
+    severity: row.severity,
+    read: normalizeBoolean(row.read),
+    route: row.route,
+    createdAt: row.created_at,
+  };
+}
+
 async function getDashboard(db) {
   await insertTelemetryPoint(db);
 
@@ -350,6 +462,8 @@ async function getDashboard(db) {
   const activity = await db.query('SELECT id, title, meta, time_label AS time FROM activity ORDER BY sort_order ASC');
   const alarms = (await db.query('SELECT * FROM alarms ORDER BY id ASC')).map(mapAlarm);
   const controlState = await db.query('SELECT key, value FROM control_state ORDER BY key ASC');
+  const workOrders = (await db.query('SELECT * FROM work_orders ORDER BY sort_order ASC')).map(mapWorkOrder);
+  const notifications = (await db.query('SELECT * FROM notifications ORDER BY id DESC LIMIT 8')).map(mapNotification);
   const telemetryRows = await db.query(`
     SELECT time_label AS time, pressure, temperature, flow
     FROM telemetry
@@ -363,6 +477,8 @@ async function getDashboard(db) {
     processStages,
     activity,
     alarms,
+    workOrders,
+    notifications,
     telemetry,
     controlState: Object.fromEntries(controlState.map((item) => [item.key, item.value])),
   };
@@ -375,12 +491,84 @@ async function recordAction(db, actionType, payload = {}) {
   );
 }
 
+async function applyControlMode(db, mode) {
+  if (mode === 'Energy save') {
+    await db.run('UPDATE metrics SET value = ?, delta = ?, tone = ? WHERE id = ?', ['64%', '-7.0%', 'good', 'energy']);
+    await db.run('UPDATE metrics SET value = ?, delta = ?, tone = ? WHERE id = ?', ['91.6%', '-2.6%', 'neutral', 'throughput']);
+    await db.run('UPDATE process_stages SET status = ?, value = ? WHERE id = ?', ['watch', '82%', 'thermal']);
+  } else if (mode === 'Critical response') {
+    await db.run('UPDATE metrics SET value = ?, delta = ?, tone = ? WHERE id = ?', ['31', 'High', 'warn', 'risk']);
+    await db.run('UPDATE metrics SET value = ?, delta = ?, tone = ? WHERE id = ?', ['76%', '+5.0%', 'warn', 'energy']);
+    await db.run('UPDATE process_stages SET status = ?, value = ? WHERE id = ?', ['watch', '71%', 'thermal']);
+    await db.run(
+      'INSERT INTO notifications (title, body, severity, read, route) VALUES (?, ?, ?, ?, ?)',
+      ['Critical response mode enabled', 'Dashboard focus moved to active alarm triage.', 'critical', false, 'alarms']
+    );
+  } else {
+    for (const [id, label, value, delta, tone] of demoMetrics) {
+      await db.run('UPDATE metrics SET value = ?, delta = ?, tone = ? WHERE id = ?', [value, delta, tone, id]);
+    }
+    for (const [id, label, status, value] of demoStages) {
+      await db.run('UPDATE process_stages SET status = ?, value = ? WHERE id = ?', [status, value, id]);
+    }
+  }
+}
+
+function buildDirectAnswer(question, dashboard) {
+  const normalizedQuestion = String(question || '').toLowerCase();
+  const metricAliases = [
+    { key: 'energy', labels: ['energy load', 'energy'] },
+    { key: 'throughput', labels: ['throughput', 'output'] },
+    { key: 'uptime', labels: ['line uptime', 'uptime'] },
+    { key: 'risk', labels: ['risk index', 'risk'] },
+  ];
+
+  for (const alias of metricAliases) {
+    if (alias.labels.some((label) => normalizedQuestion.includes(label))) {
+      const metric = dashboard.metrics.find((item) =>
+        item.id === alias.key || alias.labels.some((label) => item.label.toLowerCase().includes(label))
+      );
+
+      if (metric) {
+        return `${metric.label} is ${metric.value}. Current trend: ${metric.delta}.`;
+      }
+    }
+  }
+
+  const latestTelemetry = dashboard.telemetry[dashboard.telemetry.length - 1];
+  if (!latestTelemetry) {
+    return '';
+  }
+
+  if (normalizedQuestion.includes('pressure')) {
+    return `Current pressure is ${latestTelemetry.pressure}.`;
+  }
+
+  if (normalizedQuestion.includes('temperature')) {
+    return `Current temperature is ${latestTelemetry.temperature}.`;
+  }
+
+  if (normalizedQuestion.includes('flow')) {
+    return `Current flow is ${latestTelemetry.flow}.`;
+  }
+
+  return '';
+}
+
 function buildLocalAiResponse(question, dashboard) {
   const activeAlarms = dashboard.alarms.filter((alarm) => !alarm.acknowledged);
   const critical = activeAlarms.find((alarm) => alarm.severity === 'critical');
   const warningCount = activeAlarms.filter((alarm) => alarm.severity === 'warning').length;
   const latestTelemetry = dashboard.telemetry[dashboard.telemetry.length - 1];
   const focusAlarm = critical || activeAlarms[0];
+  const directAnswer = buildDirectAnswer(question, dashboard);
+
+  if (directAnswer) {
+    const safetyNote = critical
+      ? `Safety note: ${critical.title} is still critical, so keep it visible in the alarm queue.`
+      : 'No critical alarms are currently blocking this metric.';
+    return `${directAnswer} ${safetyNote}`;
+  }
 
   if (!focusAlarm) {
     return 'All active alarms are acknowledged. Keep monitoring telemetry, confirm shift targets, and run the next preventive maintenance review.';
@@ -441,7 +629,7 @@ async function answerWithGemini(question, dashboard, localAnswer) {
           parts: [
             {
               text:
-                'You are NeuroControl AI, a next-generation industrial HMI assistant. Give short, practical, safety-first recommendations. Prioritize alarms, explain the reason, and state the next operator action.',
+                'You are NeuroControl AI, a next-generation industrial HMI assistant. If the operator asks for a specific metric, value, status, or definition, answer that exact question first in one short sentence. Add at most one short safety note after the direct answer if critical alarms exist. Only lead with alarms when the operator asks what to do next, asks for priorities, or asks about alarms.',
             },
           ],
         },
@@ -452,6 +640,11 @@ async function answerWithGemini(question, dashboard, localAnswer) {
               {
                 text: JSON.stringify({
                   question,
+                  responseRules: [
+                    'Direct metric question: answer the metric first.',
+                    'Do not start with ATTENTION or CRITICAL unless the user asks for priorities or immediate actions.',
+                    'Use only values present in dashboard.metrics or dashboard.telemetry.',
+                  ],
                   dashboard,
                 }),
               },
@@ -472,6 +665,14 @@ async function answerWithGemini(question, dashboard, localAnswer) {
 
 async function answerWithAi(question, dashboard) {
   const localAnswer = buildLocalAiResponse(question, dashboard);
+  const directAnswer = buildDirectAnswer(question, dashboard);
+
+  if (directAnswer) {
+    return {
+      provider: process.env.GEMINI_API_KEY ? 'gemini-guided-local' : 'local-ai',
+      answer: localAnswer,
+    };
+  }
 
   if (process.env.GEMINI_API_KEY) {
     try {
@@ -566,6 +767,9 @@ async function main() {
         '/api/dashboard',
         '/api/database',
         '/api/stream',
+        '/api/ingest/telemetry',
+        '/api/notifications/:id/read',
+        '/api/work-orders/:id/status',
         '/api/ai/assistant',
         '/api/control/mode',
         '/api/alarms/:id/acknowledge',
@@ -678,10 +882,63 @@ async function main() {
     try {
       const mode = String(req.body.mode || 'Normal operation');
       await db.run('UPDATE control_state SET value = ? WHERE key = ?', [mode, 'mode']);
+      await applyControlMode(db, mode);
       await recordAction(db, 'set_control_mode', { mode });
       res.json({
         status: 'updated',
         mode,
+        dashboard: await getDashboard(db),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/work-orders/:id/status', async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const status = String(req.body.status || 'in_progress');
+      await db.run('UPDATE work_orders SET status = ? WHERE id = ?', [status, id]);
+      await recordAction(db, 'update_work_order', { id, status });
+      const row = await db.get('SELECT * FROM work_orders WHERE id = ?', [id]);
+
+      if (!row) {
+        res.status(404).json({ error: 'Work order not found' });
+        return;
+      }
+
+      res.json(mapWorkOrder(row));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/notifications/:id/read', async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      await db.run('UPDATE notifications SET read = ? WHERE id = ?', [true, id]);
+      await recordAction(db, 'read_notification', { id });
+      const row = await db.get('SELECT * FROM notifications WHERE id = ?', [id]);
+
+      if (!row) {
+        res.status(404).json({ error: 'Notification not found' });
+        return;
+      }
+
+      res.json(mapNotification(row));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/ingest/telemetry', async (req, res, next) => {
+    try {
+      const telemetry = await insertTelemetryRecord(db, req.body);
+      await recordAction(db, 'ingest_telemetry', req.body);
+      res.json({
+        status: 'stored',
+        telemetry,
+        dashboard: await getDashboard(db),
       });
     } catch (error) {
       next(error);

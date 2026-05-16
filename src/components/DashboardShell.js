@@ -11,6 +11,7 @@ import {
   Cpu,
   Database,
   Factory,
+  Inbox,
   Gauge,
   Map,
   RadioTower,
@@ -45,7 +46,7 @@ const severityRank = {
   medium: 2,
 };
 
-export function AppHeader({ currentTime, activeAlarmCount, apiStatus }) {
+export function AppHeader({ currentTime, activeAlarmCount, unreadNotificationCount = 0, apiStatus, onOpenNotifications }) {
   const apiConnected = apiStatus?.connected;
   const databaseLabel = apiStatus?.database || 'fallback';
 
@@ -74,10 +75,14 @@ export function AppHeader({ currentTime, activeAlarmCount, apiStatus }) {
           <Clock3 size={17} />
           <span>{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
         </div>
-        <div className="notification-pill" aria-label={`${activeAlarmCount} unacknowledged alarms`}>
+        <button
+          className="notification-pill"
+          aria-label={`${unreadNotificationCount} unread notifications and ${activeAlarmCount} unacknowledged alarms`}
+          onClick={onOpenNotifications}
+        >
           <Bell size={17} />
-          <strong>{activeAlarmCount}</strong>
-        </div>
+          <strong>{unreadNotificationCount || activeAlarmCount}</strong>
+        </button>
       </div>
     </header>
   );
@@ -200,7 +205,7 @@ export const defaultViews = [
   { id: 'alarms', label: 'Alarm Triage', icon: AlertTriangle },
   { id: 'ai', label: 'AI Copilot', icon: Bot },
   { id: 'assets', label: 'Assets', icon: Factory },
-  { id: 'database', label: 'Database', icon: Database },
+  { id: 'notifications', label: 'Notifications', icon: Inbox },
 ];
 
 export function LoginScreen({ selectedRole, onSelectRole, onLogin, isLoading }) {
@@ -220,7 +225,7 @@ export function LoginScreen({ selectedRole, onSelectRole, onLogin, isLoading }) 
     {
       id: 'engineer',
       title: 'Engineer',
-      body: 'Full diagnostics, asset state, database proof.',
+      body: 'Full diagnostics, asset state, and control tuning.',
       icon: Briefcase,
     },
   ];
@@ -566,7 +571,26 @@ export function AlarmQueue({ alarms, expandedAlarm, onToggleAlarm, onAcknowledge
   );
 }
 
-export function WorkOrderPanel() {
+export function WorkOrderPanel({ workOrders = [], onUpdateStatus }) {
+  const orders = workOrders.length ? workOrders : [
+    {
+      id: 'controller-audit',
+      title: 'Controller audit',
+      asset: 'PLC-7',
+      status: 'open',
+      due: 'Today',
+      recommendation: 'Firmware drift detected',
+    },
+    {
+      id: 'efficiency-review',
+      title: 'Efficiency review',
+      asset: 'Thermal cell',
+      status: 'open',
+      due: 'Fri',
+      recommendation: 'Recovery below target',
+    },
+  ];
+
   return (
     <section className="content-panel work-panel">
       <div className="panel-heading">
@@ -578,22 +602,56 @@ export function WorkOrderPanel() {
       </div>
 
       <div className="work-list">
-        <article>
-          <Cpu size={18} />
-          <div>
-            <strong>Controller audit</strong>
-            <span>PLC-7 firmware drift detected</span>
-          </div>
-          <time>Today</time>
-        </article>
-        <article>
-          <TrendingUp size={18} />
-          <div>
-            <strong>Efficiency review</strong>
-            <span>Thermal cell recovery below target</span>
-          </div>
-          <time>Fri</time>
-        </article>
+        {orders.map((order, index) => {
+          const Icon = index % 2 === 0 ? Cpu : TrendingUp;
+          const nextStatus = order.status === 'open' ? 'in_progress' : order.status === 'in_progress' ? 'complete' : 'open';
+
+          return (
+            <article key={order.id}>
+              <Icon size={18} />
+              <div>
+                <strong>{order.title}</strong>
+                <span>{order.asset} / {order.recommendation}</span>
+                <small className={`work-status work-status--${order.status}`}>{order.status.replace('_', ' ')}</small>
+              </div>
+              <button className="inline-action" onClick={() => onUpdateStatus?.(order.id, nextStatus)}>
+                {order.status === 'complete' ? 'Reopen' : order.status === 'in_progress' ? 'Complete' : 'Start'}
+              </button>
+              <time>{order.due}</time>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+export function NotificationsPanel({ notifications = [], onRead, onOpenRoute }) {
+  return (
+    <section className="content-panel notifications-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Notifications</p>
+          <h2>Action Center</h2>
+        </div>
+        <Bell size={18} />
+      </div>
+
+      <div className="notification-list">
+        {notifications.length ? notifications.map((item) => (
+          <article className={`notification-card notification-card--${item.severity} ${item.read ? 'is-read' : ''}`} key={item.id}>
+            <div>
+              <strong>{item.title}</strong>
+              <span>{item.body}</span>
+            </div>
+            <div className="notification-actions">
+              <button className="inline-action" onClick={() => onOpenRoute?.(item.route)}>Open</button>
+              {!item.read && <button className="inline-action" onClick={() => onRead?.(item.id)}>Mark read</button>}
+            </div>
+          </article>
+        )) : (
+          <p>No notifications. The control room is quiet.</p>
+        )}
       </div>
     </section>
   );

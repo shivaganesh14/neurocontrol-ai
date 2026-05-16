@@ -57,6 +57,19 @@ export function setControlMode(mode) {
   });
 }
 
+export function updateWorkOrderStatus(id, status) {
+  return request(`/api/work-orders/${id}/status`, {
+    method: 'POST',
+    body: JSON.stringify({ status }),
+  });
+}
+
+export function markNotificationRead(id) {
+  return request(`/api/notifications/${id}/read`, {
+    method: 'POST',
+  });
+}
+
 export function askAiAssistant(question) {
   return request('/api/ai/assistant', {
     method: 'POST',

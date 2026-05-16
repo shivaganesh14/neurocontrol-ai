@@ -224,6 +224,13 @@ h2 {
 
 .notification-pill {
   color: var(--red);
+  cursor: pointer;
+}
+
+.notification-pill:hover,
+.notification-pill:focus-visible {
+  border-color: #f2b8b8;
+  outline: none;
 }
 
 .workspace {
@@ -949,7 +956,7 @@ dd {
 .work-list article {
   min-height: 64px;
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-columns: 28px minmax(0, 1fr) auto auto;
   gap: 10px;
   align-items: center;
   padding: 12px 0;
@@ -973,6 +980,95 @@ dd {
   color: var(--muted);
   font-size: 0.75rem;
   font-weight: 800;
+}
+
+.work-status {
+  width: fit-content;
+  margin-top: 4px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: var(--blue);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.work-status--complete {
+  color: var(--green);
+  background: #edf7ef;
+}
+
+.work-status--in_progress {
+  color: var(--amber);
+  background: #fff8eb;
+}
+
+.inline-action {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.inline-action:hover,
+.inline-action:focus-visible {
+  color: var(--blue);
+  border-color: #bdd4ff;
+  outline: none;
+}
+
+.notification-list {
+  display: grid;
+  gap: 10px;
+}
+
+.notification-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.notification-card--critical {
+  border-color: #f2b8b8;
+  background: #fff5f5;
+}
+
+.notification-card--warning {
+  border-color: #f1ce91;
+  background: #fff8eb;
+}
+
+.notification-card.is-read {
+  opacity: 0.68;
+}
+
+.notification-card div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.notification-card span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.notification-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .target-gauge {
@@ -1131,5 +1227,14 @@ dd {
 
   .alarm-details {
     padding-left: 14px;
+  }
+
+  .work-list article,
+  .notification-card {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-actions {
+    justify-content: flex-start;
   }
 }
